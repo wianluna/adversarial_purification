@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--plot-res", action='store_true')
     args = parser.parse_args()
 
-    model = MetricModel(args.device, 'p1q2.pth')
+    model = MetricModel(args.device, 'p1q2.pth', defense_type='fcn_filter')
     model.eval()
 
     dataset = AttackedDataset(

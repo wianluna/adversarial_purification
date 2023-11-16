@@ -5,6 +5,19 @@ import torch.nn.functional as F
 from torchvision import models
 from torchvision import transforms
 
+from defenses.reversed_adv_cf.defense import ReversedAdvCF
+from defenses.conv_filter.defense import FCNDefense
+
+
+class ResizeDefense:
+    def __init__(self):
+        pass
+
+    def __call__(self, image):
+        new_size = (np.array(image.shape[2:]) * 0.5).astype(int)
+        resized_image = transforms.Resize(list(new_size))(image)
+        return resized_image
+
 
 def SPSP(x, P=1, method='avg'):
     batch_size = x.size(0)
@@ -150,7 +163,7 @@ class Normalize(nn.Module):
 
 
 class MetricModel(torch.nn.Module):
-    def __init__(self, device, model_path):
+    def __init__(self, device, model_path, defense_type='baseline'):
         super().__init__()
         self.device = device
 
@@ -164,10 +177,12 @@ class MetricModel(torch.nn.Module):
         self.model = model.to(device)
         self.lower_better = False
 
-    def defense(self, image):
-        new_size = (np.array(image.shape[2:]) * 0.5).astype(int)
-        resized_image = transforms.Resize(list(new_size))(image)
-        return resized_image
+        if defense_type == 'baseline':
+            self.defense = ResizeDefense()
+        elif defense_type == 'resversed_adv_cf':
+            self.defense = ReversedAdvCF(self)
+        elif defense_type == 'fcn_filter':
+            self.defense = FCNDefense(self.device)
 
     def forward(self, image, inference=False, defense=False):
         if defense:
