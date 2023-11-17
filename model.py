@@ -7,6 +7,7 @@ from torchvision import transforms
 
 from defenses.reversed_adv_cf.defense import ReversedAdvCF
 from defenses.conv_filter.defense import FCNDefense
+from defenses.transforms.jpeg import JpegDefense
 
 
 class ResizeDefense:
@@ -163,7 +164,7 @@ class Normalize(nn.Module):
 
 
 class MetricModel(torch.nn.Module):
-    def __init__(self, device, model_path, defense_type='baseline'):
+    def __init__(self, device, model_path, defense_type=None, defense_params={'q': 50}):
         super().__init__()
         self.device = device
 
@@ -179,10 +180,14 @@ class MetricModel(torch.nn.Module):
 
         if defense_type == 'baseline':
             self.defense = ResizeDefense()
+        elif defense_type is None:
+            self.defense = lambda x: x
         elif defense_type == 'resversed_adv_cf':
             self.defense = ReversedAdvCF(self)
         elif defense_type == 'fcn_filter':
             self.defense = FCNDefense(self.device)
+        elif defense_type == 'jpeg':
+            self.defense = JpegDefense(**defense_params)
 
     def forward(self, image, inference=False, defense=False):
         if defense:
