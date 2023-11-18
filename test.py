@@ -2,6 +2,7 @@ import argparse
 from glob import glob
 import os
 from pathlib import Path
+import random
 import warnings
 
 import cv2
@@ -43,7 +44,7 @@ class AttackedDataset(Dataset):
             for attack in attacks:
                 self.attacked_images.extend(sorted(glob(os.path.join(self.data_dir, attack, '*'))))
         else:
-            self.attacked_images = sorted(glob(os.path.join(self.data_dir, '*', '*')))
+            self.attacked_images = sorted(glob(os.path.join(self.reference_dir, '*')))
 
     def __len__(self):
         return len(self.attacked_images)
@@ -111,18 +112,46 @@ def save_image(source_image, attacked_image, defended_image, save_path):
 def plot_res():
     results = pd.read_csv('results.csv')
     results['defense_type'] = results['defense_type'].fillna('without defense')
+
+    plt.figure(figsize=(10,6))
+    plt.subplots_adjust(left=0.09, bottom=0.1, right=0.8, top=0.9, wspace=0.4, hspace=0.4)
+    fcn_res = results.dropna()
+    for _, res in fcn_res.iterrows():
+        plt.scatter(res['quality_score'], res['gain_score'], label=res['info'], s=120)
+
+    baseline = results[results['defense_type'] == 'baseline'][results['attack_type'] == 'color_attack'].iloc[0]
+    print(baseline) 
+    plt.scatter(baseline['quality_score'], baseline['gain_score'], label=baseline['info'], s=120)
+
+    plt.title(f'FCNet with different train loss')
+    plt.xlabel('quality score')
+    plt.ylabel('gain score')
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.grid()
+    plt.savefig(f'fcn.png')
+    plt.clf()
+
     results = pd.concat([results[results['info'].isna()]])
 
+    colors =  ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     for attack_type in results['attack_type'].unique():
         attack_res = results[results['attack_type'] == attack_type]
 
-        for _, res in attack_res.iterrows():
-            plt.scatter(res['quality_score'], res['gain_score'], label=res['defense_type'])
+        plt.figure(figsize=(10,6))
+        plt.subplots_adjust(left=0.09, bottom=0.1, right=0.8, top=0.9, wspace=0.4, hspace=0.4)
 
+        for i, (_, res) in enumerate(attack_res.iterrows()):
+            plt.scatter(res['quality_score'], res['gain_score'], label=res['defense_type'], s=120)
+
+        if attack_type == 'clean_images':
+            plt.xlim([0.8, 1.5])
+        else:
+            plt.xlim([0, 0.9])
         plt.title(f'{attack_type}')
         plt.xlabel('quality score')
         plt.ylabel('gain score')
-        plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.grid()
         plt.savefig(f'res_{attack_type}.png')
         plt.clf()
 
@@ -213,7 +242,7 @@ def test(model, dataset, device, attack_type, defense_type, q=None):
             model,
             attacked_image,
             source_image,
-            save_path=f'image_examples/{attack_type}_{defense_type}_{q}.png' if i == 2 else None,
+            save_path=f'image_examples/{attack_type}_{defense_type}_{q}.png' if i == random.randint(0, 150) else None,
         )
 
         quality_score_arr.append(quality_score)
@@ -245,7 +274,7 @@ def main():
     parser.add_argument("--device", type=str, help="device to run model on", default="cuda")
     parser.add_argument("--plot-hist", action='store_true')
     parser.add_argument("--plot-res", action='store_true')
-    parser.add_argument("--defense", type=str, default=None)
+    parser.add_argument("--defense", type=str, default='random_crop')
     args = parser.parse_args()
 
     if args.plot_res:
@@ -253,24 +282,25 @@ def main():
         return
 
     attacks = {
+        'clean_images': None,
         # 'color_attack': ['adv-cf'],
         # 'zhang': ['zhang-et-al-dists', 'zhang-et-al-lpips', 'zhang-et-al-ssim'],
         # 'fgsm': ['amifgsm', 'ifgsm', 'mifgsm'],
         # 'korhonen': ['korhonen-et-al'],
         # 'madc': ['madc'],
         # 'ssah': ['ssah'],
-        'all_attacks': [
-            'adv-cf',
-            'zhang-et-al-dists',
-            'zhang-et-al-lpips',
-            'zhang-et-al-ssim',
-            'amifgsm',
-            'ifgsm',
-            'mifgsm',
-            'korhonen-et-al',
-            'madc',
-            'ssah',
-        ]
+        # 'all_attacks': [
+        #     'adv-cf',
+        #     'zhang-et-al-dists',
+        #     'zhang-et-al-lpips',
+        #     'zhang-et-al-ssim',
+        #     'amifgsm',
+        #     'ifgsm',
+        #     'mifgsm',
+        #     'korhonen-et-al',
+        #     'madc',
+        #     'ssah',
+        # ]
     }
 
     results = []
