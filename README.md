@@ -29,7 +29,7 @@ python3 test.py \
     --data-dir <path to attacked images> \
     --metric-checkpoints ../checkpoints \
     --defense <defense_method>
-    --device=<device>
+    --device <device>
 ```
 
 ### Available defense methods

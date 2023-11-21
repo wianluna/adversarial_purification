@@ -287,13 +287,13 @@ def test(model, dataset, device, attack_type, defense_type, q=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--reference_dir',
+        '--reference-dir',
         type=str,
         help='path to source images',
         default='../../space-1/hackathon/dataset/test/reference',
     )
     parser.add_argument(
-        '--data_dir',
+        '--data-dir',
         type=str,
         help='path to attacked images',
         default='../../space-1/hackathon/dataset/test/attacked',
@@ -315,25 +315,25 @@ def main():
         return
 
     attacks = {
-        # 'clean_images': None,
+        'clean_images': None,
         'color_attack': ['adv-cf'],
-        # 'zhang': ['zhang-et-al-dists', 'zhang-et-al-lpips', 'zhang-et-al-ssim'],
-        # 'fgsm': ['amifgsm', 'ifgsm', 'mifgsm'],
-        # 'korhonen': ['korhonen-et-al'],
-        # 'madc': ['madc'],
-        # 'ssah': ['ssah'],
-        # 'all_attacks': [
-        #     'adv-cf',
-        #     'zhang-et-al-dists',
-        #     'zhang-et-al-lpips',
-        #     'zhang-et-al-ssim',
-        #     'amifgsm',
-        #     'ifgsm',
-        #     'mifgsm',
-        #     'korhonen-et-al',
-        #     'madc',
-        #     'ssah',
-        # ]
+        'zhang': ['zhang-et-al-dists', 'zhang-et-al-lpips', 'zhang-et-al-ssim'],
+        'fgsm': ['amifgsm', 'ifgsm', 'mifgsm'],
+        'korhonen': ['korhonen-et-al'],
+        'madc': ['madc'],
+        'ssah': ['ssah'],
+        'all_attacks': [
+            'adv-cf',
+            'zhang-et-al-dists',
+            'zhang-et-al-lpips',
+            'zhang-et-al-ssim',
+            'amifgsm',
+            'ifgsm',
+            'mifgsm',
+            'korhonen-et-al',
+            'madc',
+            'ssah',
+        ],
     }
 
     results = []
