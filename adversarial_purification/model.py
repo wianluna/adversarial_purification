@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,15 +7,14 @@ import torch.nn.functional as F
 from torchvision import models
 from torchvision import transforms
 
-from defenses.reversed_adv_cf.defense import ReversedAdvCF
-from defenses.conv_filter.defense import FCNDefense
-from defenses.transforms.jpeg import JpegDefense
-from defenses.transforms.flip import FlipDefense
-from defenses.transforms.upscale import UpscaleDefense
-from defenses.transforms.median_filter import MedianFilterDefense
-from defenses.transforms.gaussian_blur import GaussianBlurDefense
-from defenses.transforms.random_crop import RandomCropDefense
-from defenses.transforms.rotate import RotateDefense
+from adversarial_purification.defenses.conv_filter.defense import FCNDefense
+from adversarial_purification.defenses.transforms.jpeg import JpegDefense
+from adversarial_purification.defenses.transforms.flip import FlipDefense
+from adversarial_purification.defenses.transforms.upscale import UpscaleDefense
+from adversarial_purification.defenses.transforms.median_filter import MedianFilterDefense
+from adversarial_purification.defenses.transforms.gaussian_blur import GaussianBlurDefense
+from adversarial_purification.defenses.transforms.random_crop import RandomCropDefense
+from adversarial_purification.defenses.transforms.rotate import RotateDefense
 
 
 class ResizeDefense:
@@ -186,14 +187,12 @@ class MetricModel(torch.nn.Module):
 
         if defense_type == 'baseline':
             self.defense = ResizeDefense()
-        elif defense_type == 'resversed_adv_cf':
-            self.defense = ReversedAdvCF(self)
         elif defense_type == 'fcn_filter':
-            self.defense = FCNDefense(self.device)
+            self.defense = FCNDefense(Path(model_path).parent / 'fcn_mse.pth', self.device)
         elif defense_type == 'jpeg':
             self.defense = JpegDefense(**defense_params)
         elif defense_type == 'flip':
-            self.defense = FlipDefense(axes=[2, 3]) 
+            self.defense = FlipDefense(axes=[2, 3])
         elif defense_type == 'median_filter':
             self.defense = MedianFilterDefense(blur_limit=3)
         elif defense_type == 'gaussian_blur':
@@ -202,7 +201,7 @@ class MetricModel(torch.nn.Module):
             self.defense = RandomCropDefense(size=256)
         elif defense_type == 'rotate':
             self.defense = RotateDefense(angle_limit=5)
-        elif defense_type == 'upscale_nearest' or defense_type == 'upscale_bicubic' or 'upscale_bilinear':
+        elif defense_type in ['upscale_nearest', 'upscale_bicubic', 'upscale_bilinear']:
             self.defense = UpscaleDefense(mode=defense_type[8:], upscale_factor=0.5)
         else:
             self.defense = lambda x: x

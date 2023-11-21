@@ -15,9 +15,22 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from model import MetricModel
+from adversarial_purification.model import MetricModel
 
-warnings.filterwarnings("ignore")
+
+warnings.filterwarnings('ignore')
+plot_colors = {
+    'without defense': '#1f77b4',
+    'baseline': '#ff7f0e',
+    'jpeg': '#2ca02c',
+    'fcn_filter': '#d62728',
+    'flip': '#9467bd',
+    'gaussian_blur': '#8c564b',
+    'median_filter': '#e377c2',
+    'random_crop': '#7f7f7f',
+    'rotate': '#bcbd22',
+    'next_color': '#17becf',
+}
 
 
 class AttackedDataset(Dataset):
@@ -100,48 +113,59 @@ def save_image(source_image, attacked_image, defended_image, save_path):
     fig, axs = plt.subplots(nrows=1, ncols=3, squeeze=False, figsize=(12, 8))
 
     axs[0, 0].set_title('Clean')
-    axs[0, 0].imshow(tensors_to_images(source_image)[0][..., ::-1])
+    axs[0, 0].imshow(tensors_to_images(source_image)[0])
     axs[0, 1].set_title('Attacked')
-    axs[0, 1].imshow(tensors_to_images(attacked_image)[0][..., ::-1])
+    axs[0, 1].imshow(tensors_to_images(attacked_image)[0])
     axs[0, 2].set_title('Purified')
-    axs[0, 2].imshow(tensors_to_images(defended_image)[0][..., ::-1])
+    axs[0, 2].imshow(tensors_to_images(defended_image)[0])
 
     fig.savefig(save_path)
 
 
 def plot_res():
-    results = pd.read_csv('results.csv')
+    results = pd.read_csv('../results.csv')
     results['defense_type'] = results['defense_type'].fillna('without defense')
 
-    plt.figure(figsize=(10,6))
+    plt.figure(figsize=(10, 6))
     plt.subplots_adjust(left=0.09, bottom=0.1, right=0.8, top=0.9, wspace=0.4, hspace=0.4)
+    origin = results[results['defense_type'] == 'without defense'][
+        results['attack_type'] == 'color_attack'
+    ]
+    plt.scatter(origin['quality_score'], origin['gain_score'], label='without_defense', s=120)
+
+    baseline = results[results['defense_type'] == 'baseline'][
+        results['attack_type'] == 'color_attack'
+    ].iloc[0]
+    plt.scatter(baseline['quality_score'], baseline['gain_score'], label='baseline', s=120)
+
     fcn_res = results.dropna()
     for _, res in fcn_res.iterrows():
         plt.scatter(res['quality_score'], res['gain_score'], label=res['info'], s=120)
 
-    baseline = results[results['defense_type'] == 'baseline'][results['attack_type'] == 'color_attack'].iloc[0]
-    print(baseline) 
-    plt.scatter(baseline['quality_score'], baseline['gain_score'], label=baseline['info'], s=120)
-
-    plt.title(f'FCNet with different train loss')
+    plt.title('FCNet with different train loss')
     plt.xlabel('quality score')
     plt.ylabel('gain score')
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.grid()
-    plt.savefig(f'fcn.png')
+    plt.savefig('../plots/fcn.png')
     plt.clf()
 
     results = pd.concat([results[results['info'].isna()]])
 
-    colors =  ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     for attack_type in results['attack_type'].unique():
         attack_res = results[results['attack_type'] == attack_type]
 
-        plt.figure(figsize=(10,6))
+        plt.figure(figsize=(10, 6))
         plt.subplots_adjust(left=0.09, bottom=0.1, right=0.8, top=0.9, wspace=0.4, hspace=0.4)
 
         for i, (_, res) in enumerate(attack_res.iterrows()):
-            plt.scatter(res['quality_score'], res['gain_score'], label=res['defense_type'], s=120)
+            plt.scatter(
+                res['quality_score'],
+                res['gain_score'],
+                label=res['defense_type'],
+                s=120,
+                color=plot_colors[res['defense_type']],
+            )
 
         if attack_type == 'clean_images':
             plt.xlim([0.8, 1.5])
@@ -152,7 +176,7 @@ def plot_res():
         plt.ylabel('gain score')
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.grid()
-        plt.savefig(f'res_{attack_type}.png')
+        plt.savefig(f'../plots/res_{attack_type}.png')
         plt.clf()
 
 
@@ -242,7 +266,9 @@ def test(model, dataset, device, attack_type, defense_type, q=None):
             model,
             attacked_image,
             source_image,
-            save_path=f'image_examples/{attack_type}_{defense_type}_{q}.png' if i == random.randint(0, 150) else None,
+            save_path=f'../images/{attack_type}_{defense_type}_{q}.png'
+            if i == random.randint(0, len(dataset))
+            else None,
         )
 
         quality_score_arr.append(quality_score)
@@ -251,8 +277,8 @@ def test(model, dataset, device, attack_type, defense_type, q=None):
 
     quality_score = np.mean(quality_score_arr)
     gain_score = np.mean(gain_score_arr)
-    print(quality_score)
-    print(gain_score)
+    print(f'Quality score = {quality_score}')
+    print(f'Gain score = {gain_score}')
     print(np.mean(score_arr, axis=0))
 
     return quality_score, gain_score
@@ -261,20 +287,27 @@ def test(model, dataset, device, attack_type, defense_type, q=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--reference_dir",
+        '--reference_dir',
         type=str,
-        help="path to source image",
-        default="/home/a.chistyakova/space-1/hackathon/dataset/test/reference",
+        help='path to source images',
+        default='../../space-1/hackathon/dataset/test/reference',
     )
     parser.add_argument(
-        "--data_dir",
+        '--data_dir',
         type=str,
-        default="/home/a.chistyakova/space-1/hackathon/dataset/test/attacked",
+        help='path to attacked images',
+        default='../../space-1/hackathon/dataset/test/attacked',
     )
-    parser.add_argument("--device", type=str, help="device to run model on", default="cuda")
-    parser.add_argument("--plot-hist", action='store_true')
-    parser.add_argument("--plot-res", action='store_true')
-    parser.add_argument("--defense", type=str, default='random_crop')
+    parser.add_argument(
+        '--metric-checkpoints',
+        type=str,
+        help='path to linearity checkpoints',
+        default='../checkpoints/p1q2.pth',
+    )
+    parser.add_argument('--device', type=str, help='device to run model on', default='cuda')
+    parser.add_argument('--plot-hist', action='store_true')
+    parser.add_argument('--plot-res', action='store_true')
+    parser.add_argument('--defense', type=str, default='fcn_filter')
     args = parser.parse_args()
 
     if args.plot_res:
@@ -282,8 +315,8 @@ def main():
         return
 
     attacks = {
-        'clean_images': None,
-        # 'color_attack': ['adv-cf'],
+        # 'clean_images': None,
+        'color_attack': ['adv-cf'],
         # 'zhang': ['zhang-et-al-dists', 'zhang-et-al-lpips', 'zhang-et-al-ssim'],
         # 'fgsm': ['amifgsm', 'ifgsm', 'mifgsm'],
         # 'korhonen': ['korhonen-et-al'],
@@ -321,7 +354,10 @@ def main():
             gain_score_arr = []
             for q in qfs:
                 model = MetricModel(
-                    args.device, 'p1q2.pth', defense_type=args.defense, defense_params={'q': q}
+                    args.device,
+                    args.metric_checkpoints,
+                    defense_type=args.defense,
+                    defense_params={'q': q},
                 )
                 model.eval()
 
@@ -337,24 +373,8 @@ def main():
                     'gain_score': gain_score_arr,
                 }
             ).to_csv(f'{attack_type}_jpeg_results.csv', index=False)
-        elif args.defense == 'fcn_filter':
-            # if attack_type != 'color_attack':
-            #     continue
-
-            model = MetricModel(args.device, 'p1q2.pth', defense_type=args.defense)
-            model.eval()
-
-            quality_score, gain_score = test(model, dataset, args.device, attack_type, args.defense)
-            results.append(
-                {
-                    'attack_type': attack_type,
-                    'defense_type': args.defense,
-                    'quality_score': quality_score,
-                    'gain_score': gain_score,
-                }
-            )
         else:
-            model = MetricModel(args.device, 'p1q2.pth', defense_type=args.defense)
+            model = MetricModel(args.device, args.metric_checkpoints, defense_type=args.defense)
             model.eval()
 
             quality_score, gain_score = test(model, dataset, args.device, attack_type, args.defense)
@@ -367,15 +387,15 @@ def main():
                 }
             )
 
-    if not Path('results.csv').exists():
+    if not Path('../results.csv').exists():
         pd.DataFrame(columns=['attack_type', 'defense_type', 'quality_score', 'gain_score']).to_csv(
-            'results.csv', index=False
+            '../results.csv', index=False
         )
 
-    pd.concat([pd.read_csv('results.csv'), pd.DataFrame(data=results)]).to_csv(
-        'results.csv', index=False
+    pd.concat([pd.read_csv('../results.csv'), pd.DataFrame(data=results)]).to_csv(
+        '../results.csv', index=False
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
